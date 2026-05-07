@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VESSEL — Embodied Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Syne:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ink: #0e0e10;
+    --paper: #f2efe8;
+    --accent: #c84b2f;
+    --calm: #3a6b8a;
+    --mist: rgba(242,239,232,0.08);
+    --ghost: rgba(14,14,16,0.06);
+  }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'DM Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #root {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.6s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  /* ── START ── */
+  #start-screen {
+    gap: 0;
+    background: var(--ink);
+  }
+  .title-word {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: clamp(4rem, 12vw, 9rem);
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    color: var(--paper);
+    opacity: 0;
+    transform: translateY(30px);
+    animation: rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .title-word:nth-child(2) { animation-delay: 0.1s; color: var(--accent); }
+
+  @keyframes rise {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .subtitle {
+    margin-top: 1.5rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: rgba(242,239,232,0.4);
+    opacity: 0;
+    animation: rise 0.8s 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .start-cta {
+    margin-top: 3rem;
+    opacity: 0;
+    animation: rise 0.8s 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid rgba(242,239,232,0.3);
+    color: var(--paper);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    padding: 14px 36px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .btn:hover { border-color: var(--paper); background: rgba(242,239,232,0.06); }
+  .btn.accent { border-color: var(--accent); color: var(--accent); }
+  .btn.accent:hover { background: rgba(200,75,47,0.1); }
+
+  .how-it-works {
+    margin-top: 2rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: rgba(242,239,232,0.25);
+    text-align: center;
+    line-height: 2;
+    opacity: 0;
+    animation: rise 0.8s 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── GAME ── */
+  #game-screen { padding: 0; }
+
+  #webcam {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.18;
+  }
+
+  #game-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #mp-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── HUD ── */
+  #hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .hud-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hud-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: rgba(242,239,232,0.3);
+  }
+  .hud-value {
+    font-size: 1.4rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 300;
+    color: var(--paper);
+    line-height: 1;
+  }
+
+  .hud-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: rgba(242,239,232,0.2);
+    align-self: center;
+  }
+
+  .hud-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .energy-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 140px;
+  }
+  .energy-track {
+    height: 2px;
+    background: rgba(242,239,232,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  .energy-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 100%;
+    transform-origin: left;
+    transition: transform 0.1s linear;
+  }
+
+  .gesture-hint {
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    color: rgba(242,239,232,0.25);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* ── BODY STATE INDICATOR ── */
+  #body-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: rgba(242,239,232,0.15);
+    pointer-events: none;
+    transition: color 0.4s;
+  }
+
+  /* ── NO HAND WARNING ── */
+  #no-hand {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #no-hand.visible { opacity: 1; }
+
+  /* ── GAME OVER ── */
+  #over-screen { background: rgba(14,14,16,0.92); gap: 1rem; }
+  .over-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: clamp(3rem, 8vw, 6rem);
+    letter-spacing: -0.03em;
+    color: var(--accent);
+  }
+  .over-score {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: rgba(242,239,232,0.4);
+    margin-top: 0.5rem;
+  }
+  .over-score span {
+    color: var(--paper);
+    font-size: 1.2rem;
+    font-family: 'Syne', sans-serif;
+  }
+  .over-btns { display: flex; gap: 12px; margin-top: 2rem; }
+
+  /* ── LOADING ── */
+  #loading-screen { gap: 1rem; }
+  .loading-text {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: rgba(242,239,232,0.4);
+  }
+  .loading-bar {
+    width: 180px;
+    height: 1px;
+    background: rgba(242,239,232,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  .loading-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--paper);
+    animation: load-sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes load-sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+</style>
+</head>
+<body>
+<div id="root">
+
+  <!-- START -->
+  <div class="screen" id="start-screen">
+    <div class="title-word">VESSEL</div>
+    <div class="title-word">DRIFT</div>
+    <div class="subtitle">an embodied interaction prototype</div>
+    <div class="start-cta">
+      <button class="btn" onclick="initCamera()">ENABLE CAMERA</button>
+    </div>
+    <div class="how-it-works">
+      open palm → move the vessel · fist → burst of speed<br>
+      two hands → shield mode · the world responds to your body
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="screen hidden" id="loading-screen">
+    <div class="loading-text">loading hand model</div>
+    <div class="loading-bar"></div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen hidden" id="game-screen">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="mp-canvas"></canvas>
+    <canvas id="game-canvas"></canvas>
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-stat">
+          <div class="hud-label">score</div>
+          <div class="hud-value" id="hud-score">0</div>
+        </div>
+        <div class="hud-title">VESSEL DRIFT</div>
+        <div class="hud-stat" style="text-align:right">
+          <div class="hud-label">depth</div>
+          <div class="hud-value" id="hud-depth">0m</div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="energy-bar-wrap">
+          <div class="hud-label">energy</div>
+          <div class="energy-track">
+            <div class="energy-fill" id="energy-fill"></div>
+          </div>
+        </div>
+        <div class="gesture-hint" id="gesture-hint">show your hand</div>
+      </div>
+    </div>
+    <div id="body-state">·</div>
+    <div id="no-hand">◈ SHOW YOUR HAND ◈</div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="screen hidden" id="over-screen">
+    <div class="over-title">LOST</div>
+    <div class="over-score">depth reached · <span id="final-depth">0</span>m</div>
+    <div class="over-score">score · <span id="final-score">0</span></div>
+    <div class="over-btns">
+      <button class="btn" onclick="restartGame()">AGAIN</button>
+      <button class="btn accent" onclick="showStart()">MENU</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const S = {
+  // screens
+  screens: {},
+  // hand
+  hands: null,
+  camera: null,
+  handData: [],       // array of {landmarks, gesture}
+  noHandFrames: 0,
+  // vessel
+  vx: 0, vy: 0,      // current pos (0-1 normalized)
+  tvx: 0.5, tvy: 0.5, // target pos
+  velX: 0, velY: 0,  // velocity
+  // game
+  running: false,
+  score: 0,
+  depth: 0,
+  energy: 1,
+  speed: 1,
+  frame: 0,
+  // objects
+  rocks: [],
+  orbs: [],
+  particles: [],
+  trails: [],
+  // gesture
+  gesture: 'none',    // none | open | fist | point | two
+  gestureLabel: '',
+  shielded: false,
+  shieldTimer: 0,
+  invincible: false,
+  invincibleTimer: 0,
+};
+
+// ── SCREEN MANAGEMENT ──────────────────────────────────────────────────────
+function show(id) {
+  Object.values(S.screens).forEach(s => s.classList.add('hidden'));
+  S.screens[id].classList.remove('hidden');
+}
+function showStart() {
+  S.running = false;
+  show('start-screen');
+}
+
+// ── CAMERA + MEDIAPIPE ────────────────────────────────────────────────────
+async function initCamera() {
+  show('loading-screen');
+  const video = document.getElementById('webcam');
+
+  const hands = new Hands({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  });
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.75,
+    minTrackingConfidence: 0.6
+  });
+  hands.onResults(onHandResults);
+  S.hands = hands;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' } });
+    video.srcObject = stream;
+    await new Promise(r => video.onloadedmetadata = r);
+    await video.play();
+  } catch(e) {
+    alert('Camera access needed. Please allow and reload.');
+    showStart(); return;
+  }
+
+  const cam = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 1280, height: 720
+  });
+  await cam.start();
+  S.camera = cam;
+
+  // resize mp canvas
+  const mc = document.getElementById('mp-canvas');
+  mc.width = window.innerWidth;
+  mc.height = window.innerHeight;
+
+  show('game-screen');
+  startGame();
+}
+
+// ── GESTURE RECOGNITION ───────────────────────────────────────────────────
+function classifyGesture(lm) {
+  // lm: array of {x,y,z} normalized landmarks (21 points)
+  const fingertip  = [8, 12, 16, 20];
+  const fingerbase = [6, 10, 14, 18];
+  const thumbTip   = lm[4];
+  const thumbBase  = lm[2];
+  const wrist      = lm[0];
+
+  let extended = 0;
+  for (let i = 0; i < 4; i++) {
+    if (lm[fingertip[i]].y < lm[fingerbase[i]].y) extended++;
+  }
+  const thumbOut = thumbTip.x < thumbBase.x; // mirrored
+
+  if (extended === 4) return 'open';
+  if (extended === 0) return 'fist';
+  if (extended === 1 && lm[8].y < lm[6].y) return 'point';
+  return 'open';
+}
+
+function onHandResults(results) {
+  if (!S.running) return;
+  S.handData = [];
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    S.noHandFrames = 0;
+    document.getElementById('no-hand').classList.remove('visible');
+
+    for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+      const lm = results.multiHandLandmarks[i];
+      const g = classifyGesture(lm);
+      S.handData.push({ landmarks: lm, gesture: g });
+    }
+
+    // primary hand controls vessel
+    const primary = S.handData[0];
+    const indexTip = primary.landmarks[8];
+    const palmCenter = primary.landmarks[9]; // middle finger base = palm center
+
+    // Gesture logic
+    if (S.handData.length >= 2) {
+      S.gesture = 'two';
+    } else {
+      S.gesture = primary.gesture;
+    }
+
+    // Movement: palm center drives position (more embodied than fingertip)
+    S.tvx = 1 - palmCenter.x; // mirror
+    S.tvy = palmCenter.y;
+
+    updateGestureState();
+  } else {
+    S.noHandFrames++;
+    if (S.noHandFrames > 20) {
+      S.gesture = 'none';
+      document.getElementById('no-hand').classList.add('visible');
+    }
+  }
+}
+
+function updateGestureState() {
+  const hint = document.getElementById('gesture-hint');
+  const bodyState = document.getElementById('body-state');
+
+  switch(S.gesture) {
+    case 'open':
+      hint.textContent = 'open palm · drifting';
+      bodyState.textContent = 'DRIFTING';
+      bodyState.style.color = 'rgba(242,239,232,0.12)';
+      S.shielded = false;
+      break;
+    case 'fist':
+      hint.textContent = 'fist · BURST';
+      bodyState.textContent = 'BURST';
+      bodyState.style.color = 'rgba(200,75,47,0.5)';
+      S.shielded = false;
+      break;
+    case 'point':
+      hint.textContent = 'pointing · focused';
+      bodyState.textContent = 'FOCUS';
+      bodyState.style.color = 'rgba(58,107,138,0.5)';
+      S.shielded = false;
+      break;
+    case 'two':
+      hint.textContent = 'two hands · SHIELD';
+      bodyState.textContent = 'SHIELD';
+      bodyState.style.color = 'rgba(58,107,138,0.7)';
+      S.shielded = true;
+      S.shieldTimer = 60;
+      break;
+    case 'none':
+      hint.textContent = 'show your hand';
+      bodyState.textContent = '·';
+      bodyState.style.color = 'rgba(242,239,232,0.1)';
+      S.shielded = false;
+      break;
+  }
+}
+
+// ── GAME LOGIC ─────────────────────────────────────────────────────────────
+function startGame() {
+  S.score = 0; S.depth = 0; S.energy = 1; S.speed = 1; S.frame = 0;
+  S.vx = 0.5; S.vy = 0.5; S.tvx = 0.5; S.tvy = 0.5;
+  S.velX = 0; S.velY = 0;
+  S.rocks = []; S.orbs = []; S.particles = []; S.trails = [];
+  S.shielded = false; S.shieldTimer = 0;
+  S.invincible = false; S.invincibleTimer = 0;
+  S.running = true;
+
+  const canvas = document.getElementById('game-canvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+
+  requestAnimationFrame(gameLoop);
+}
+
+function restartGame() {
+  show('game-screen');
+  startGame();
+}
+
+function spawnRock() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if (side === 0) { x = Math.random() * W; y = -60; }
+  else if (side === 1) { x = W + 60; y = Math.random() * H; }
+  else if (side === 2) { x = Math.random() * W; y = H + 60; }
+  else { x = -60; y = Math.random() * H; }
+
+  const spd = (2.5 + S.speed * 1.2) * (0.7 + Math.random() * 0.6);
+  const cx = W/2, cy = H/2;
+  const angle = Math.atan2(cy - y, cx - x) + (Math.random() - 0.5) * 1.0;
+  const sides = 5 + Math.floor(Math.random() * 4);
+  const r = 18 + Math.random() * 28;
+
+  S.rocks.push({
+    x, y,
+    vx: Math.cos(angle) * spd,
+    vy: Math.sin(angle) * spd,
+    r, sides,
+    rot: Math.random() * Math.PI * 2,
+    rotV: (Math.random() - 0.5) * 0.04,
+    age: 0
+  });
+}
+
+function spawnOrb() {
+  const W = window.innerWidth, H = window.innerHeight;
+  S.orbs.push({
+    x: 80 + Math.random() * (W - 160),
+    y: 80 + Math.random() * (H - 160),
+    r: 10, age: 0, life: 280 + Math.random() * 120,
+    type: Math.random() < 0.3 ? 'shield' : 'energy'
+  });
+}
+
+function emitParticles(x, y, color, count = 10, speed = 4) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = speed * (0.4 + Math.random() * 0.6);
+    S.particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 35 + Math.random() * 25, color });
+  }
+}
+
+function gameLoop() {
+  if (!S.running) return;
+  S.frame++;
+
+  const W = window.innerWidth, H = window.innerHeight;
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+
+  // ── UPDATE VESSEL ──
+  const baseSmooth = S.gesture === 'fist' ? 0.22 : (S.gesture === 'point' ? 0.10 : 0.12);
+  S.vx += (S.tvx - S.vx) * baseSmooth;
+  S.vy += (S.tvy - S.vy) * baseSmooth;
+
+  const px = S.vx * W;
+  const py = S.vy * H;
+
+  // trail
+  S.trails.push({ x: px, y: py, life: 22, gesture: S.gesture });
+  if (S.trails.length > 60) S.trails.shift();
+
+  // ── TIMERS ──
+  S.depth += 0.04 * S.speed;
+  S.score += 0.08 * S.speed;
+  S.speed = 1 + S.depth / 400;
+
+  if (S.gesture === 'fist') {
+    S.energy = Math.max(0, S.energy - 0.012);
+    if (S.energy <= 0) S.gesture = 'open';
+  } else {
+    S.energy = Math.min(1, S.energy + 0.003);
+  }
+  document.getElementById('energy-fill').style.transform = `scaleX(${S.energy})`;
+  document.getElementById('hud-score').textContent = Math.floor(S.score);
+  document.getElementById('hud-depth').textContent = Math.floor(S.depth) + 'm';
+
+  if (S.shieldTimer > 0) S.shieldTimer--;
+  if (S.invincibleTimer > 0) { S.invincibleTimer--; } else { S.invincible = false; }
+
+  // ── SPAWN ──
+  const rockRate = Math.max(28, 80 - S.depth * 0.18);
+  if (S.frame % Math.floor(rockRate) === 0) spawnRock();
+  if (S.frame % 180 === 0) spawnOrb();
+
+  // ── ROCKS ──
+  S.rocks = S.rocks.filter(r => r.x > -120 && r.x < W+120 && r.y > -120 && r.y < H+120);
+  for (const rock of S.rocks) {
+    rock.x += rock.vx;
+    rock.y += rock.vy;
+    rock.rot += rock.rotV;
+    rock.age++;
+
+    const dist = Math.hypot(px - rock.x, py - rock.y);
+    if (dist < rock.r + 14 && !S.invincible) {
+      if (S.shielded || S.shieldTimer > 0) {
+        emitParticles(rock.x, rock.y, '#3a6b8a', 14, 6);
+        rock.x = -200; // remove
+      } else {
+        emitParticles(px, py, '#c84b2f', 20, 7);
+        S.invincible = true; S.invincibleTimer = 80;
+        S.energy = Math.max(0, S.energy - 0.3);
+        if (S.energy <= 0) { endGame(); return; }
+      }
+    }
+  }
+
+  // ── ORBS ──
+  S.orbs = S.orbs.filter(o => o.age < o.life);
+  for (const orb of S.orbs) {
+    orb.age++;
+    const dist = Math.hypot(px - orb.x, py - orb.y);
+    if (dist < orb.r + 14) {
+      if (orb.type === 'energy') {
+        S.energy = Math.min(1, S.energy + 0.35);
+        S.score += 50;
+        emitParticles(orb.x, orb.y, '#f2efe8', 16, 5);
+      } else {
+        S.shieldTimer = 150;
+        emitParticles(orb.x, orb.y, '#3a6b8a', 16, 5);
+      }
+      orb.age = orb.life;
+    }
+  }
+
+  // ── PARTICLES ──
+  S.particles = S.particles.filter(p => p.life > 0);
+  for (const p of S.particles) {
+    p.x += p.vx; p.y += p.vy; p.vx *= 0.91; p.vy *= 0.91; p.life--;
+  }
+
+  // ─────────────── DRAW ────────────────────────────────────────────────────
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(242,239,232,0.025)';
+  ctx.lineWidth = 0.5;
+  const gs = 80;
+  for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+
+  // depth fog at edges
+  const fog = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.25, W/2,H/2, Math.min(W,H)*0.75);
+  fog.addColorStop(0, 'rgba(14,14,16,0)');
+  fog.addColorStop(1, 'rgba(14,14,16,0.7)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0,0,W,H);
+
+  // trails
+  for (const t of S.trails) {
+    const a = t.life / 22;
+    const tcolor = t.gesture === 'fist' ? `rgba(200,75,47,${a * 0.5})` :
+                   t.gesture === 'two'  ? `rgba(58,107,138,${a * 0.4})` :
+                                          `rgba(242,239,232,${a * 0.18})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.gesture === 'fist' ? 5 : 3, 0, Math.PI*2);
+    ctx.fillStyle = tcolor;
+    ctx.fill();
+    t.life--;
+  }
+  S.trails = S.trails.filter(t => t.life > 0);
+
+  // rocks
+  for (const rock of S.rocks) {
+    ctx.save();
+    ctx.translate(rock.x, rock.y);
+    ctx.rotate(rock.rot);
+    ctx.beginPath();
+    for (let i = 0; i < rock.sides; i++) {
+      const a = (i / rock.sides) * Math.PI * 2;
+      const rr = rock.r * (0.75 + Math.sin(a * 3.7 + rock.age * 0.01) * 0.25);
+      i === 0 ? ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr) : ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(242,239,232,0.55)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(242,239,232,0.04)';
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  // orbs
+  for (const orb of S.orbs) {
+    const a = Math.sin(orb.age * 0.08) * 0.3 + 0.7;
+    const fadeOut = orb.age > orb.life * 0.8 ? 1 - (orb.age - orb.life*0.8) / (orb.life*0.2) : 1;
+    const color = orb.type === 'energy' ? `rgba(242,239,232,${a * fadeOut * 0.9})` : `rgba(58,107,138,${a * fadeOut * 0.9})`;
+    const glow = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r * 3);
+    glow.addColorStop(0, orb.type === 'energy' ? `rgba(242,239,232,${0.15 * fadeOut})` : `rgba(58,107,138,${0.15 * fadeOut})`);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r * 3, 0, Math.PI*2);
+    ctx.fillStyle = glow; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+
+    ctx.save();
+    ctx.font = `9px DM Mono, monospace`;
+    ctx.fillStyle = 'rgba(14,14,16,0.6)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(orb.type === 'energy' ? 'E' : 'S', orb.x, orb.y);
+    ctx.restore();
+  }
+
+  // particles
+  for (const p of S.particles) {
+    ctx.globalAlpha = p.life / 60;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = p.color; ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // vessel
+  const blink = S.invincible && Math.floor(S.frame / 5) % 2 === 0;
+  if (!blink) {
+    // glow
+    const vesselGlow = ctx.createRadialGradient(px, py, 0, px, py, 40);
+    const gc = S.gesture === 'fist' ? 'rgba(200,75,47,' : (S.shieldTimer > 0 || S.shielded) ? 'rgba(58,107,138,' : 'rgba(242,239,232,';
+    vesselGlow.addColorStop(0, gc + '0.18)');
+    vesselGlow.addColorStop(1, gc + '0)');
+    ctx.beginPath(); ctx.arc(px, py, 40, 0, Math.PI*2);
+    ctx.fillStyle = vesselGlow; ctx.fill();
+
+    // shield ring
+    if (S.shieldTimer > 0 || S.shielded) {
+      ctx.beginPath();
+      ctx.arc(px, py, 30, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(58,107,138,${0.6 * (S.shielded ? 1 : S.shieldTimer/80)})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // vessel body — a simple angular shape
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(Math.atan2(S.vy - 0.5, S.tvx - S.vx) + (S.gesture === 'fist' ? Math.sin(S.frame*0.3)*0.08 : 0));
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, -9);
+    ctx.lineTo(-6, 0);
+    ctx.lineTo(-10, 9);
+    ctx.closePath();
+    ctx.fillStyle = S.gesture === 'fist' ? '#c84b2f' : (S.shieldTimer > 0 ? '#3a6b8a' : '#f2efe8');
+    ctx.fill();
+
+    // engine glow (back)
+    if (S.gesture === 'fist') {
+      ctx.beginPath(); ctx.arc(-8, 0, 5, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(200,75,47,0.8)'; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // crosshair lines (faint, body-awareness)
+  ctx.strokeStyle = 'rgba(242,239,232,0.06)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([3, 12]);
+  ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // fist boost flash
+  if (S.gesture === 'fist' && S.energy > 0) {
+    ctx.fillStyle = 'rgba(200,75,47,0.04)';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  S.running = false;
+  document.getElementById('final-depth').textContent = Math.floor(S.depth);
+  document.getElementById('final-score').textContent = Math.floor(S.score);
+  show('over-screen');
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  S.screens = {
+    'start-screen': document.getElementById('start-screen'),
+    'loading-screen': document.getElementById('loading-screen'),
+    'game-screen': document.getElementById('game-screen'),
+    'over-screen': document.getElementById('over-screen'),
+  };
+  show('start-screen');
+});
+</script>
+</body>
+</html>
